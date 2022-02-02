@@ -1,0 +1,53 @@
+---
+title: "dibimbing-shiny-test"
+author: "Aviandito"
+date: "3/7/2021"
+output: html_document
+---
+
+```{r}
+library(pwr)
+library(tidyverse)
+```
+
+```{r}
+h <- ES.h(p1=0.0329, p2=0.0629)
+pwr.2p.test(h=h, sig.level = 0.05, power=0.8)
+```
+
+```{r}
+# Read World Bank population data. Latest is 2019 population
+wb_pop_data_dir <- 'API_SP.POP.TOTL_DS2_en_csv_v2_2163507'
+wb_pop_data_filename <- 'API_SP.POP.TOTL_DS2_en_csv_v2_2163507.csv'
+wb_pop_file_full <- paste0(wb_pop_data_dir, '/', wb_pop_data_filename) 
+
+wb_pop <- read_csv(wb_pop_file_full, skip = 3) %>%
+  select(`Country Name`, `Country Code`, `2019`) %>%
+  rename(country_name = `Country Name`,
+         iso_code = `Country Code`,
+         pop_2019 = `2019`)
+
+# Read Our World In Data vaccination data and metadata for ISO code
+owid_dir <- 'owid' # should be the location of vaccination-country data data set from OWID repository
+owid_vac_dir <- paste0(owid_dir, '/country_data')
+owid_loc <- paste0(owid_dir, '/locations.csv')
+
+locations <- read_csv(owid_loc)
+
+owid_vac <- list.files(path = owid_vac_dir, pattern = "*.csv", full.names = TRUE) %>% 
+  map_df(~read_csv(.)) %>%
+  left_join(locations) %>%
+  select(location, iso_code, date, total_vaccinations, people_vaccinated, people_fully_vaccinated)
+
+# Final data used in the Shiny app
+world_vac <- owid_vac %>%
+  left_join(wb_pop) %>%
+  select(-country_name) %>%
+  mutate(pct_pop_fully_vaccinated = people_fully_vaccinated / pop_2019) %>%
+  # renaming for clarity
+  rename(doses_given = total_vaccinations,
+         at_least_one_dose = people_vaccinated,
+         fully_vaccinated = people_fully_vaccinated)
+
+glimpse(world_vac)
+```
